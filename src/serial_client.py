@@ -26,8 +26,7 @@ def conectar(puerto=None):
         _serial = serial.Serial(p, BAUDRATE, timeout=1)
         time.sleep(1)
         return True
-    except Exception as e:
-        print(f"Error al conectar al puerto serie: {e}")
+    except Exception:
         return False
 
 # ─────────────────────────────────────────
@@ -63,14 +62,11 @@ def monitor_en_vivo(duracion=30):
 def reiniciar_esp32():
     if not esta_conectado():
         if not conectar():
-            print("No se pudo conectar al ESP32 por USB")
             return False
     try:
         _serial.setDTR(False)
         time.sleep(0.1)
         _serial.setDTR(True)
-        print("ESP32 reiniciado.")
         return True
     except Exception as e:
-        print(f"Error al reiniciar: {e}")
         return False
