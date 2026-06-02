@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────
+# config.py
+# Configuración del panel de control Agro
+# ─────────────────────────────────────────
+
+# Firebase
+FIREBASE_DATABASE_URL = "https://tu-proyecto.firebaseio.com/"
+FIREBASE_API_KEY      = "tu-api-key"
+
+# Puerto serie ESP32
+PUERTO_SERIE          = "/dev/ttyACM0"
+BAUDRATE              = 115200
+
+# Dispositivos registrados
+DISPOSITIVOS = {
+    "dht11_esp32": {
+        "nombre": "Sensor DHT11",
+        "ruta_firebase": "/dispositivos/dht11_esp32",
+        "ruta_sensores": "/sensores/dht11"
+    }
+}
+
