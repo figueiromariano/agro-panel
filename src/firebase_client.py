@@ -42,3 +42,14 @@ def obtener_historial(ruta_sensores, limite=10):
     # Ordenar por timestamp y tomar los últimos N
     registros = sorted(data.items(), key=lambda x: x[0], reverse=True)
     return registros[:limite]
+
+# ─────────────────────────────────────────
+def leer(ruta):
+    token = obtener_token()
+    if not token:
+        return None
+    url = f"{FIREBASE_DATABASE_URL}{ruta}.json?auth={token}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    return None

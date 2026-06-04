@@ -17,6 +17,8 @@ estado = {
     "firebase": {"ok": False, "ultimo_arranque": "-", "version": "-"},
     "usb": {"conectado": False, "puerto": "-"},
     "web": {"ip": "-", "modo": "-", "red": "-"},
+    "bot": {"activo_local": False, "instalado": False, "habilitado": False,
+            "corriendo_remoto": False, "equipo_remoto": "-"},
     "monitor": [],
     "corriendo": True
 }
@@ -66,18 +68,49 @@ def hilo_serie():
         estado["usb"]["puerto"]    = "-"
         time.sleep(5)
 
+def hilo_bot():
+    while estado["corriendo"]:
+        try:
+            r1 = subprocess.run(["systemctl", "is-active", "agro-bot"],
+                                capture_output=True, text=True)
+            r2 = subprocess.run(["systemctl", "is-enabled", "agro-bot"],
+                                capture_output=True, text=True)
+            estado["bot"]["activo_local"] = r1.stdout.strip() == "active"
+            estado["bot"]["instalado"]    = r2.stdout.strip() in ("enabled", "disabled")
+            estado["bot"]["habilitado"]   = r2.stdout.strip() == "enabled"
+        except:
+            pass
+        try:
+            datos = fb.leer("/bots/agropanel_bot")
+            estado["bot"]["corriendo_remoto"] = datos.get("corriendo", False) if datos else False
+            estado["bot"]["equipo_remoto"]    = datos.get("equipo", "-") if datos else "-"
+        except:
+            pass
+        time.sleep(15)
+
 def estado_servicio_bot():
+    # Estado local del servicio
     try:
         r1 = subprocess.run(["systemctl", "is-active", "agro-bot"],
                             capture_output=True, text=True)
         r2 = subprocess.run(["systemctl", "is-enabled", "agro-bot"],
                             capture_output=True, text=True)
-        activo     = r1.stdout.strip() == "active"
-        instalado  = r2.stdout.strip() in ("enabled", "disabled")
-        habilitado = r2.stdout.strip() == "enabled"
-        return activo, instalado, habilitado
+        activo_local   = r1.stdout.strip() == "active"
+        instalado      = r2.stdout.strip() in ("enabled", "disabled")
+        habilitado     = r2.stdout.strip() == "enabled"
     except:
-        return False, False, False
+        activo_local, instalado, habilitado = False, False, False
+
+    # Estado remoto desde Firebase
+    try:
+        datos = fb.leer("/bots/agropanel_bot")
+        corriendo_remoto = datos.get("corriendo", False) if datos else False
+        equipo_remoto    = datos.get("equipo", "-") if datos else "-"
+    except:
+        corriendo_remoto = False
+        equipo_remoto    = "-"
+
+    return activo_local, instalado, habilitado, corriendo_remoto, equipo_remoto
 
 def dibujar_recuadro(win, y, x, h, w, titulo=""):
     win.attron(curses.color_pair(3))
@@ -167,16 +200,30 @@ def dibujar_panel(win):
     # Fila 2: Bot
     alto_fila2 = 6
     dibujar_recuadro(win, alto_cuad+2, 0, alto_fila2, ancho_cuad*2, "Bot Telegram")
-    activo, instalado, habilitado = estado_servicio_bot()
+    activo    = estado["bot"]["activo_local"]
+    instalado = estado["bot"]["instalado"]
+    habilitado = estado["bot"]["habilitado"]
+    corriendo_remoto = estado["bot"]["corriendo_remoto"]
+    equipo_remoto    = estado["bot"]["equipo_remoto"]
+
     if not instalado:
-        win.attron(curses.color_pair(2))
-        win.addstr(alto_cuad+4, 2, "● No instalado")
-        win.attroff(curses.color_pair(2))
+        if corriendo_remoto:
+            win.attron(curses.color_pair(4))
+            win.addstr(alto_cuad+4, 2, f"● Corriendo en: {equipo_remoto[:ancho_cuad*2-20]}")
+            win.attroff(curses.color_pair(4))
+        else:
+            win.attron(curses.color_pair(2))
+            win.addstr(alto_cuad+4, 2, "● No instalado localmente")
+            win.attroff(curses.color_pair(2))
     else:
         if activo:
             win.attron(curses.color_pair(1))
-            win.addstr(alto_cuad+4, 2, "● Corriendo")
+            win.addstr(alto_cuad+4, 2, "● Corriendo (local)")
             win.attroff(curses.color_pair(1))
+        elif corriendo_remoto:
+            win.attron(curses.color_pair(4))
+            win.addstr(alto_cuad+4, 2, f"● Corriendo en: {equipo_remoto[:ancho_cuad*2-20]}")
+            win.attroff(curses.color_pair(4))
         else:
             win.attron(curses.color_pair(2))
             win.addstr(alto_cuad+4, 2, "● Detenido")
@@ -186,6 +233,8 @@ def dibujar_panel(win):
         win.addstr(alto_cuad+5, 2, f"Inicio: {estado_str}")
         win.addstr(alto_cuad+6, 2, "[B] Iniciar/Detener  [A] Auto on/off")
         win.attroff(curses.color_pair(5))
+
+
 
     # Monitor Serie
     alto_monitor = alto - alto_cuad - alto_fila2 - 6
@@ -242,8 +291,11 @@ def main(win):
     win.timeout(500)
     t_fb = threading.Thread(target=hilo_firebase, daemon=True)
     t_se = threading.Thread(target=hilo_serie,    daemon=True)
+    t_bt = threading.Thread(target=hilo_bot,      daemon=True)
     t_fb.start()
     t_se.start()
+    t_bt.start()
+
     while True:
         try:
             dibujar_panel(win)
@@ -257,9 +309,8 @@ def main(win):
                 ok = serie.reiniciar_esp32()
                 estado["monitor"].append(">> ESP32 reiniciado." if ok else ">> Error al reiniciar.")
             elif tecla in (ord('b'), ord('B')):
-                activo, instalado, habilitado = estado_servicio_bot()
-                if instalado:
-                    if activo:
+                if estado["bot"]["instalado"]:
+                    if estado["bot"]["activo_local"]:
                         subprocess.run(["sudo", "systemctl", "stop", "agro-bot"],
                                        capture_output=True)
                         estado["monitor"].append(">> Bot detenido.")
@@ -268,9 +319,8 @@ def main(win):
                                        capture_output=True)
                         estado["monitor"].append(">> Bot iniciado.")
             elif tecla in (ord('a'), ord('A')):
-                activo, instalado, habilitado = estado_servicio_bot()
-                if instalado:
-                    if habilitado:
+                if estado["bot"]["instalado"]:
+                    if estado["bot"]["habilitado"]:
                         subprocess.run(["sudo", "systemctl", "disable", "agro-bot"],
                                        capture_output=True)
                         estado["monitor"].append(">> Bot: inicio automatico desactivado.")
