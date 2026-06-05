@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+import fcntl
+
+# Verificar instancia unica
+lock_file = open('/tmp/agro-panel.lock', 'w')
+try:
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except IOError:
+    print("El panel ya esta corriendo en otra instancia.")
+    sys.exit(1)
+
 import curses
 import threading
 import time
