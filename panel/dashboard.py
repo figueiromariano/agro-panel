@@ -26,7 +26,7 @@ estado = {
     "sensor": {"temperatura": "-", "humedad": "-", "timestamp": "-"},
     "firebase": {"ok": False, "ultimo_arranque": "-", "version": "-"},
     "usb": {"conectado": False, "puerto": "-"},
-    "web": {"ip": "-", "modo": "-", "red": "-"},
+    "web": {"ip": "-", "modo": "-", "red": "-", "nombre": "-"},
     "bot": {"activo_local": False, "instalado": False, "habilitado": False,
             "corriendo_remoto": False, "equipo_remoto": "-"},
     "monitor": [],
@@ -50,6 +50,7 @@ def hilo_firebase():
                 estado["web"]["ip"]   = est.get("ip", "-")
                 estado["web"]["modo"] = est.get("modo", "-")
                 estado["web"]["red"]  = est.get("red", "-")
+                estado["web"]["nombre"] = est.get("nombre", "-")
                 estado["firebase"]["ultimo_arranque"] = est.get("ultimo_arranque", "-")
                 estado["firebase"]["version"]         = est.get("version", "-")
         except:
@@ -154,7 +155,9 @@ def dibujar_panel(win):
     alto_cuad  = 7
 
     # Cuadrante 1: Sensor
-    dibujar_recuadro(win, 2, 0, alto_cuad, ancho_cuad, "Sensor DHT11")
+    nombre_disp = estado["web"]["nombre"]
+    titulo_sensor = nombre_disp if nombre_disp != "-" else "Sensor DHT11"
+    dibujar_recuadro(win, 2, 0, alto_cuad, ancho_cuad, titulo_sensor)
     win.attron(curses.color_pair(5))
     win.addstr(4, 2, f"Temp : {estado['sensor']['temperatura']} C")
     win.addstr(5, 2, f"Hum  : {estado['sensor']['humedad']} %")
@@ -179,8 +182,11 @@ def dibujar_panel(win):
     # Cuadrante 3: Web
     dibujar_recuadro(win, 2, ancho_cuad*2, alto_cuad, ancho_cuad, "Conexion Web")
     if estado["web"]["ip"] != "-":
+        nombre = estado['web']['nombre']
+        if nombre == "-":
+            nombre = "En red"
         win.attron(curses.color_pair(1))
-        win.addstr(4, ancho_cuad*2+2, "● En red")
+        win.addstr(4, ancho_cuad*2+2, f"● {nombre[:ancho_cuad-6]}")
         win.attroff(curses.color_pair(1))
         win.attron(curses.color_pair(5))
         win.addstr(5, ancho_cuad*2+2, f"IP  : {estado['web']['ip'][:ancho_cuad-8]}")
