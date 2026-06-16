@@ -24,6 +24,7 @@ import serial_client as serie
 
 estado = {
     "sensor": {"temperatura": "-", "humedad": "-", "timestamp": "-"},
+    "bmp180": {"presion": "-", "temperatura": "-", "altitud": "-", "timestamp": "-"},
     "firebase": {"ok": False, "ultimo_arranque": "-", "version": "-"},
     "usb": {"conectado": False, "puerto": "-"},
     "web": {"ip": "-", "modo": "-", "red": "-", "nombre": "-"},
@@ -45,14 +46,23 @@ def hilo_firebase():
                 estado["sensor"]["humedad"]      = str(lectura.get("humedad", "-"))
                 estado["sensor"]["timestamp"]    = lectura.get("timestamp", "-")
                 estado["firebase"]["ok"] = True
+
             est = fb.obtener_estado_dispositivo("dht11_esp32")
             if est:
-                estado["web"]["ip"]   = est.get("ip", "-")
-                estado["web"]["modo"] = est.get("modo", "-")
-                estado["web"]["red"]  = est.get("red", "-")
+                estado["web"]["ip"]     = est.get("ip", "-")
+                estado["web"]["modo"]   = est.get("modo", "-")
+                estado["web"]["red"]    = est.get("red", "-")
                 estado["web"]["nombre"] = est.get("nombre", "-")
                 estado["firebase"]["ultimo_arranque"] = est.get("ultimo_arranque", "-")
                 estado["firebase"]["version"]         = est.get("version", "-")
+
+            lectura_bmp = fb.leer("/sensores/bmp180/ultima_lectura")
+            if lectura_bmp:
+                estado["bmp180"]["presion"]     = str(lectura_bmp.get("presion", "-"))
+                estado["bmp180"]["temperatura"] = str(lectura_bmp.get("temperatura", "-"))
+                estado["bmp180"]["altitud"]     = str(lectura_bmp.get("altitud", "-"))
+                estado["bmp180"]["timestamp"]   = lectura_bmp.get("timestamp", "-")
+
         except:
             estado["firebase"]["ok"] = False
         time.sleep(30)
@@ -213,7 +223,7 @@ def dibujar_panel(win):
         win.addstr(4, ancho_cuad*3+2, "● Sin datos")
         win.attroff(curses.color_pair(2))
 
-    # Fila 2: Bot
+# Fila 2: Bot y BMP180
     alto_fila2 = 6
     dibujar_recuadro(win, alto_cuad+2, 0, alto_fila2, ancho_cuad*2, "Bot Telegram")
     activo    = estado["bot"]["activo_local"]
@@ -250,7 +260,13 @@ def dibujar_panel(win):
         win.addstr(alto_cuad+6, 2, "[B] Iniciar/Detener  [A] Auto on/off")
         win.attroff(curses.color_pair(5))
 
-
+    # BMP180
+    dibujar_recuadro(win, alto_cuad+2, ancho_cuad*2, alto_fila2, ancho - ancho_cuad*2, "BMP180")
+    win.attron(curses.color_pair(5))
+    win.addstr(alto_cuad+4, ancho_cuad*2+2, f"Pres : {estado['bmp180']['presion']} hPa")
+    win.addstr(alto_cuad+5, ancho_cuad*2+2, f"Temp : {estado['bmp180']['temperatura']} C")
+    win.addstr(alto_cuad+6, ancho_cuad*2+2, f"Alt  : {estado['bmp180']['altitud']} m")
+    win.attroff(curses.color_pair(5))
 
     # Monitor Serie
     alto_monitor = alto - alto_cuad - alto_fila2 - 6
