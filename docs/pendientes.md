@@ -19,3 +19,7 @@
 - El panel consulta Firebase para saber si hay bot activo
 - Si no hay bot activo, ofrecer iniciarlo manual o automaticamente
 - Agregar comando /estado al bot que informe desde que equipo esta corriendo
+
+## Mejoras del panel
+- Indicador de "ultima actualizacion" (hace cuanto se refrescaron los datos)
+- Logs persistentes del monitor serie guardados en archivo
