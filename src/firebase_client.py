@@ -1,30 +1,34 @@
 # ─────────────────────────────────────────
 # firebase_client.py
-# Conexión y consultas a Firebase Realtime Database
+# Conexion y consultas a Firebase Realtime Database
 # ─────────────────────────────────────────
 
 import requests
-import json
-from config import FIREBASE_DATABASE_URL, FIREBASE_API_KEY
+from config import FIREBASE_DATABASE_URL
 
-# ─────────────────────────────────────────
-def obtener_token():
-    url = f"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={FIREBASE_API_KEY}"
-    response = requests.post(url, json={"returnSecureToken": True})
-    if response.status_code == 200:
-        return response.json().get("idToken")
-    return None
+TIMEOUT = 10
 
 # ─────────────────────────────────────────
 def leer(ruta):
-    token = obtener_token()
-    if not token:
+    try:
+        url = f"{FIREBASE_DATABASE_URL}{ruta}.json"
+        response = requests.get(url, timeout=TIMEOUT)
+        if response.status_code == 200:
+            return response.json()
         return None
-    url = f"{FIREBASE_DATABASE_URL}{ruta}.json?auth={token}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    return None
+    except Exception as e:
+        print(f"Error Firebase leer: {e}")
+        return None
+
+# ─────────────────────────────────────────
+def escribir(ruta, valor):
+    try:
+        url = f"{FIREBASE_DATABASE_URL}{ruta}.json"
+        response = requests.put(url, json=valor, timeout=TIMEOUT)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Error Firebase escribir: {e}")
+        return False
 
 # ─────────────────────────────────────────
 def obtener_estado_dispositivo(dispositivo_id):
@@ -39,17 +43,5 @@ def obtener_historial(ruta_sensores, limite=10):
     data = leer(f"{ruta_sensores}/historial")
     if not data:
         return []
-    # Ordenar por timestamp y tomar los últimos N
     registros = sorted(data.items(), key=lambda x: x[0], reverse=True)
     return registros[:limite]
-
-# ─────────────────────────────────────────
-def leer(ruta):
-    token = obtener_token()
-    if not token:
-        return None
-    url = f"{FIREBASE_DATABASE_URL}{ruta}.json?auth={token}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    return None
